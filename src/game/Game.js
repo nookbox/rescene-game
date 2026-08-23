@@ -2,6 +2,8 @@ import * as THREE from 'three';
 
 export default class Game {
   constructor(canvas, options = {}) {
+    this.score = 0;
+
     this.canvas = canvas;
     this.options = options;
 
@@ -47,7 +49,6 @@ export default class Game {
 
     this.scene.add(this.cube);
 
-    // TODO(3단계): 키보드 입력 받기
     this.keys = {};
 
     this.onKeyDown = (e) => {
@@ -97,8 +98,14 @@ export default class Game {
       const card = this.cards[i];
 
       card.position.y -= cardSpeed * delta;
-
-      if (card.position.y < -8) {
+      if (card.position.distanceTo(this.cube.position) < 0.8) {
+        // 받았다
+        this.score++;
+        console.log('점수:', this.score);
+        this.scene.remove(card);
+        this.cards.splice(i, 1);
+      } else if (card.position.y < -8) {
+        // 놓쳤다
         this.scene.remove(card);
         this.cards.splice(i, 1);
       }
@@ -106,8 +113,6 @@ export default class Game {
   }
 
   spawnCard() {
-    console.log('카드 수:', this.cards.length);
-
     const card = new THREE.Mesh(this.cardGeometry, this.cardMaterial);
     card.position.set(THREE.MathUtils.randFloat(-5, 5), 8, 0);
     this.scene.add(card);
