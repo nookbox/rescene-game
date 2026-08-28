@@ -1,19 +1,9 @@
-import * as THREE from "three";
+import * as THREE from 'three';
 
-/**
- * 게임의 본체.
- *
- * 규칙: 이 폴더(src/game/)의 파일들은 React를 전혀 몰라야 한다.
- * 순수 three.js + 순수 JS만. 그래야 나중에 다른 프레임워크로 옮기거나
- * React Three Fiber로 갈아탈 때 이 코드를 그대로 재활용할 수 있다.
- *
- * 바깥(React)에 노출하는 것은 딱 3개:
- *   - constructor(canvas, options)
- *   - start()
- *   - dispose()
- */
 export default class Game {
   constructor(canvas, options = {}) {
+    this.score = 0;
+
     this.canvas = canvas;
     this.options = options;
 
@@ -23,18 +13,58 @@ export default class Game {
     // 이전 프레임 시각. delta time(프레임 간 경과 시간) 계산용.
     this.lastTime = 0;
 
-    console.log("[Game] three.js revision:", THREE.REVISION);
+    // card 스폰
+    this.spawnTimer = 0; // 마지막으로 만든 지 몇 초 지났나
+    this.spawnInterval = 1; // 몇 초마다 만들까
 
-    // TODO(1단계): scene / camera / renderer 만들기
+    this.cards = [];
+
+    // 카드 생성
+    this.cardGeometry = new THREE.BoxGeometry(0.6, 0.9, 0.05);
+    this.cardMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+
+    this.renderer = new THREE.WebGLRenderer({ antialias: true, canvas });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setSize(
+      this.canvas.clientWidth,
+      this.canvas.clientHeight,
+      false,
+    );
+
+    const fov = 75;
+    const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+    const near = 0.1;
+    const far = 100;
+    this.camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+
+    this.camera.position.set(0, 2, 8);
+    this.camera.lookAt(0, 1, 0);
+
+    this.scene = new THREE.Scene();
+
     // TODO(2단계): 바닥과 큐브 하나 올려보기
-    // TODO(3단계): 키보드 입력 받기
+    this.material = new THREE.MeshBasicMaterial({ color: 0x44aa88 });
+    this.geometry = new THREE.BoxGeometry(1, 1, 1);
+    this.cube = new THREE.Mesh(this.geometry, this.material);
+
+    this.scene.add(this.cube);
+
+    this.keys = {};
+
+    this.onKeyDown = (e) => {
+      this.keys[e.code] = true;
+    };
+    this.onKeyUp = (e) => {
+      this.keys[e.code] = false;
+    };
+
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
   }
 
   /** 게임 루프 시작 */
   start() {
     const loop = (time) => {
-      // delta는 "이전 프레임에서 지금까지 몇 초 흘렀나". 단위: 초.
-      // 모든 움직임에 이걸 곱해야 60fps든 144fps든 같은 속도로 움직인다.
       const delta = (time - this.lastTime) / 1000;
       this.lastTime = time;
 
@@ -43,17 +73,55 @@ export default class Game {
 
       this.rafId = requestAnimationFrame(loop);
     };
+
     this.rafId = requestAnimationFrame(loop);
   }
 
   /** 매 프레임 상태를 갱신 (위치 이동, 충돌 판정, 점수 등) */
   update(delta) {
-    // TODO: 여기에 게임 로직
+    const speed = 5; // 1초에 5칸
+    const cardSpeed = 3;
+
+    if (this.keys['ArrowLeft']) this.cube.position.x -= speed * delta;
+    if (this.keys['ArrowRight']) this.cube.position.x += speed * delta;
+
+    // 벽 생성, 좌 우 한계 이동 제한
+    this.cube.position.x = THREE.MathUtils.clamp(this.cube.position.x, -5, 5);
+
+    this.spawnTimer += delta;
+    if (this.spawnTimer >= this.spawnInterval) {
+      this.spawnTimer = 0;
+      this.spawnCard();
+    }
+
+    for (let i = this.cards.length - 1; i >= 0; i--) {
+      const card = this.cards[i];
+
+      card.position.y -= cardSpeed * delta;
+      if (card.position.distanceTo(this.cube.position) < 0.8) {
+        // 받았다
+        this.score++;
+        console.log('점수:', this.score);
+        this.scene.remove(card);
+        this.cards.splice(i, 1);
+      } else if (card.position.y < -8) {
+        // 놓쳤다
+        this.scene.remove(card);
+        this.cards.splice(i, 1);
+      }
+    }
+  }
+
+  spawnCard() {
+    const card = new THREE.Mesh(this.cardGeometry, this.cardMaterial);
+    card.position.set(THREE.MathUtils.randFloat(-5, 5), 8, 0);
+    this.scene.add(card);
+    this.cards.push(card);
   }
 
   /** 매 프레임 화면에 그리기 */
   render() {
-    // TODO: this.renderer.render(this.scene, this.camera);
+    this.renderer.render(this.scene, this.camera);
   }
 
   /**
@@ -64,7 +132,12 @@ export default class Game {
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     this.rafId = null;
 
-    // TODO: 이벤트 리스너 해제 (resize, keydown ...)
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('keyup', this.onKeyUp);
     // TODO: geometry.dispose() / material.dispose() / renderer.dispose()
   }
+}
+
+if (import.meta.hot) {
+  import.meta.hot.accept(() => window.location.reload());
 }
