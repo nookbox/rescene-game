@@ -82,7 +82,6 @@ export default class Game {
     if (this.spawnTimer >= this.spawnInterval) {
       this.spawnTimer = 0;
       this.spawnCard();
-      // this.camera.lookAt(this.player.position);
     }
 
     // 지우면서 도는 루프는 거꾸로 돌려야 인덱스가 안 꼬인다

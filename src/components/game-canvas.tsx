@@ -3,7 +3,7 @@ import Game from '../game/game.ts';
 
 interface Props {
   onCollect?: (payload: { score: number }) => void;
-  onGameOver: any; // 정의하기
+  onGameOver: any; //TODO: 정의하기
 }
 
 export default function GameCanvas({ onCollect, onGameOver }: Props) {
