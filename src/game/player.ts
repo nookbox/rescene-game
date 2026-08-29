@@ -20,7 +20,7 @@ export class Player {
 
   constructor(speed = 3) {
     this.mesh = new THREE.Mesh(this.geometry, this.material);
-    this.mesh.position.set(0, -3, 0); // 시작 자리는 캐릭터 본인의 사정
+    this.mesh.position.set(0, -3, 0);
     this.speed = speed;
 
     window.addEventListener('keydown', this.onKeyDown);
@@ -39,6 +39,7 @@ export class Player {
       this.mesh.position.x += this.speed * delta;
     }
 
+    // 벽 생성. 플레이어가 화면 밖으로 나가지 않도록.
     this.mesh.position.x = THREE.MathUtils.clamp(
       this.mesh.position.x,
       PLAY_AREA.min,

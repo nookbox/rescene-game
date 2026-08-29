@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { PLAY_AREA } from './constants.ts';
 import { Card } from './card.ts';
 import { Player } from './player.ts';
+import { Score } from './score.ts';
 
 export interface GameOptions {
   onCollect?: (payload: { score: number }) => void;
@@ -11,14 +12,13 @@ export interface GameOptions {
 export default class Game {
   private canvas: HTMLCanvasElement;
   private options: GameOptions;
+  private score = new Score();
 
   // requestAnimationFrame이 돌려주는 id. dispose()에서 취소하려면 들고 있어야 한다.
   private rafId: number | null = null;
 
   // 이전 프레임 시각. delta time(프레임 간 경과 시간) 계산용.
   private lastTime = 0;
-
-  private score = 0;
 
   private spawnTimer = 0;
   private spawnInterval = 1;
@@ -78,6 +78,7 @@ export default class Game {
     this.player.update(delta);
 
     this.spawnTimer += delta;
+
     if (this.spawnTimer >= this.spawnInterval) {
       this.spawnTimer = 0;
       this.spawnCard();
@@ -89,7 +90,13 @@ export default class Game {
       const card = this.cards[i];
       card.update(delta);
 
-      if (card.position.y < -8) {
+      if (card.position.distanceTo(this.player.position) < 0.8) {
+        // 카드가 플레이어랑 0.8정도 가까워졌을때
+        this.removeCard(i);
+        this.score.add(1);
+        this.options.onCollect?.({ score: this.score.value });
+      } else if (card.position.y < -8) {
+        // 카드가 화면 아래로 나갔을때
         this.removeCard(i);
       }
     }
