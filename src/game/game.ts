@@ -129,11 +129,9 @@ export default class Game {
     if (this.rafId !== null) cancelAnimationFrame(this.rafId);
     this.rafId = null;
 
-    // 공유 재료(카드용)의 주인은 Game
     this.cardGeometry.dispose();
     this.cardMaterial.dispose();
 
-    // 자기 재료와 키 리스너는 Player가 직접 치운다
     this.player.dispose();
 
     this.renderer.dispose();

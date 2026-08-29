@@ -10,7 +10,7 @@ export class Player {
 
   private velocityY = 0;
   private readonly gravity = 54; // 중력 가속도 (칸/초²)
-  private readonly jumpForce = 18; // 점프 초기 속도 (칸/초)
+  private readonly jumpForce = 16; // 점프 초기 속도 (칸/초)
   private isJumping = false;
   private readonly floorY = -3; // 바닥 높이 = 시작 높이
 
