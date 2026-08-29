@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+
+    /* Vite가 타입만 벗겨내고 번들링하므로 tsc는 검사만 한다 */
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+
+    /* .jsx 파일은 통과만 시키고 타입 검사는 하지 않는다 */
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "checkJs": false,
+
+    "strict": true,
+    /* 아직 안 채운 뼈대(TODO)가 많아서 잠깐 꺼둠.
+       게임이 다 돌아가면 true로 켜세요 — 오타나 죽은 코드를 잡아줍니다. */
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "skipLibCheck": true,
+
+    "types": ["vite/client"]
+  },
+  "include": ["src"]
+}

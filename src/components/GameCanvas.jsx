@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import Game from '../game/Game.js';
+import Game from '../game/game.ts';
 
 export default function GameCanvas({ onCollect, onGameOver }) {
   const canvasRef = useRef(null);
