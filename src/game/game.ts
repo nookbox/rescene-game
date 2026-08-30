@@ -1,18 +1,17 @@
 import * as THREE from 'three';
-import { PLAY_AREA } from './constants.ts';
+import { PLAY_AREA, LIFE } from './constants.ts';
 import { Card } from './card.ts';
 import { Player } from './player.ts';
 import { Score } from './score.ts';
-
-export interface GameOptions {
-  onCollect?: (payload: { score: number }) => void;
-  onGameOver?: (payload: { score: number }) => void;
-}
+import { Life } from './life.ts';
+import type { GameOptions } from './types.ts';
 
 export default class Game {
   private canvas: HTMLCanvasElement;
   private options: GameOptions;
   private score = new Score();
+  private life = new Life(LIFE);
+  private isGameOver = false;
 
   // requestAnimationFrame이 돌려주는 id. dispose()에서 취소하려면 들고 있어야 한다.
   private rafId: number | null = null;
@@ -28,6 +27,7 @@ export default class Game {
   // 카드
   private cardGeometry = new THREE.BoxGeometry(0.6, 0.9, 0.05);
   private cardMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+  private bombMaterial = new THREE.MeshBasicMaterial({ color: 0x9900ff });
 
   private scene = new THREE.Scene();
   private renderer: THREE.WebGLRenderer;
@@ -65,12 +65,21 @@ export default class Game {
     this.rafId = requestAnimationFrame(this.loop);
   }
 
+  private emitChange(): void {
+    this.options.onChange?.({
+      score: this.score.value,
+      life: this.life.value,
+    });
+  }
+
   private loop = (now: number): void => {
     const delta = (now - this.lastTime) / 1000;
     this.lastTime = now;
 
     this.update(delta);
     this.render();
+
+    if (this.isGameOver) return;
     this.rafId = requestAnimationFrame(this.loop);
   };
 
@@ -89,11 +98,23 @@ export default class Game {
       const card = this.cards[i];
       card.update(delta);
 
+      // 카드가 플레이어랑 0.8정도 가까워졌을때
       if (card.position.distanceTo(this.player.position) < 0.8) {
-        // 카드가 플레이어랑 0.8정도 가까워졌을때
-        this.removeCard(i);
-        this.score.add(1);
-        this.options.onCollect?.({ score: this.score.value });
+        if (card.type === 'bomb') {
+          this.life.decrease();
+          this.removeCard(i);
+          this.emitChange();
+
+          if (this.life.isDead) {
+            this.isGameOver = true;
+            this.options.onGameOver?.({ score: this.score.value });
+          }
+          continue; // 폭탄이면 점수 안 올리고 다음 카드로
+        } else if (card.type === 'normal') {
+          this.removeCard(i);
+          this.score.add(1);
+          this.emitChange();
+        }
       } else if (card.position.y < -8) {
         // 카드가 화면 아래로 나갔을때
         this.removeCard(i);
@@ -108,7 +129,16 @@ export default class Game {
   private resize(): void {}
 
   private spawnCard(): void {
-    const card = new Card(this.cardGeometry, this.cardMaterial);
+    const type = Math.random() < 0.2 ? 'bomb' : 'normal'; // 20% 확률
+    const material = type === 'bomb' ? this.bombMaterial : this.cardMaterial;
+
+    const card = new Card({
+      geometry: this.cardGeometry,
+      material,
+      speed: 3,
+      type,
+    });
+
     card.position.set(
       THREE.MathUtils.randFloat(PLAY_AREA.min, PLAY_AREA.max),
       8,
@@ -132,8 +162,9 @@ export default class Game {
     this.cardGeometry.dispose();
     this.cardMaterial.dispose();
 
-    this.player.dispose();
+    this.bombMaterial.dispose();
 
+    this.player.dispose();
     this.renderer.dispose();
   }
 }

@@ -1,17 +1,20 @@
 import * as THREE from 'three';
 
-type CardType = 'normal' | 'special' | 'bomb';
+export type CardType = 'normal' | 'special' | 'bomb';
+
+interface CardOptions {
+  geometry: THREE.BufferGeometry;
+  material: THREE.Material;
+  speed?: number;
+  type?: CardType;
+}
+
 export class Card {
   mesh: THREE.Mesh;
   speed: number;
   type: CardType;
 
-  constructor(
-    geometry: THREE.BufferGeometry,
-    material: THREE.Material,
-    speed = 3,
-    type: CardType = 'normal',
-  ) {
+  constructor({ geometry, material, speed = 3, type = 'normal' }: CardOptions) {
     this.mesh = new THREE.Mesh(geometry, material);
     this.speed = speed;
     this.type = type;

@@ -1,23 +1,19 @@
 import { useEffect, useRef } from 'react';
 import Game from '../game/game.ts';
+import type { GameOptions } from '../game/types.ts';
 
-interface Props {
-  onCollect?: (payload: { score: number }) => void;
-  onGameOver: any; //TODO: 정의하기
-}
-
-export default function GameCanvas({ onCollect, onGameOver }: Props) {
+export default function GameCanvas({ onChange, onGameOver }: GameOptions) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  const callbacks = useRef({ onCollect, onGameOver });
-  callbacks.current = { onCollect, onGameOver };
+  const callbacks = useRef({ onChange, onGameOver });
+  callbacks.current = { onChange, onGameOver };
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const game = new Game(canvas, {
-      onCollect: (payload) => callbacks.current.onCollect?.(payload),
+      onChange: (payload) => callbacks.current.onChange?.(payload),
       onGameOver: (payload) => callbacks.current.onGameOver?.(payload),
     });
     game.start();
