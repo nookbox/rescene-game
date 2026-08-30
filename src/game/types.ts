@@ -7,4 +7,5 @@ export interface GameState {
 export interface GameOptions {
   onChange?: (state: GameState) => void;
   onGameOver?: (payload: { score: number }) => void;
+  key?: number;
 }

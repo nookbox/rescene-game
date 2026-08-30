@@ -22,7 +22,12 @@
     "noUnusedParameters": false,
     "skipLibCheck": true,
 
-    "types": ["vite/client"]
+    "types": ["vite/client"],
+
+    /* shadcn/ui가 쓰는 "@/..." 별칭 (경로는 이 파일 위치 기준) */
+    "paths": {
+      "@/*": ["./src/*"]
+    }
   },
   "include": ["src"]
 }
