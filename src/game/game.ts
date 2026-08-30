@@ -13,6 +13,11 @@ export default class Game {
   private life = new Life(LIFE);
   private isGameOver = false;
 
+  // 게임오버 직전, 피격 모션을 보여줄 시간
+  private dying = false;
+  private deathTimer = 0;
+  private readonly deathDuration = 0.15;
+
   // requestAnimationFrame이 돌려주는 id. dispose()에서 취소하려면 들고 있어야 한다.
   private rafId: number | null = null;
 
@@ -86,6 +91,21 @@ export default class Game {
   private update(delta: number): void {
     this.player.update(delta);
 
+    // 게임오버 연출 중. 스폰과 충돌 판정은 멈추고 피격 모션만 보여준 뒤 끝낸다
+    if (this.dying) {
+      this.deathTimer -= delta;
+
+      for (const card of this.cards) {
+        card.update(delta);
+      }
+
+      if (this.deathTimer <= 0) {
+        this.isGameOver = true;
+        this.options.onGameOver?.({ score: this.score.value });
+      }
+      return;
+    }
+
     this.spawnTimer += delta;
 
     if (this.spawnTimer >= this.spawnInterval) {
@@ -102,12 +122,14 @@ export default class Game {
       if (card.position.distanceTo(this.player.position) < 0.8) {
         if (card.type === 'bomb') {
           this.life.decrease();
+          this.player.hit();
           this.removeCard(i);
           this.emitChange();
 
           if (this.life.isDead) {
-            this.isGameOver = true;
-            this.options.onGameOver?.({ score: this.score.value });
+            this.dying = true;
+            this.deathTimer = this.deathDuration;
+            this.player.die();
           }
           continue; // 폭탄이면 점수 안 올리고 다음 카드로
         } else if (card.type === 'normal') {
