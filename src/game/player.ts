@@ -3,12 +3,20 @@ import { PLAY_AREA } from './constants.ts';
 
 type PlayerState = 'idle' | 'run' | 'jump' | 'hit';
 
-const SPRITES: Record<PlayerState, string> = {
+type StillState = Exclude<PlayerState, 'run'>;
+
+const SPRITES: Record<StillState, string> = {
   idle: '/sprites/remine-idle.png',
-  run: '/sprites/remine-run.png',
   jump: '/sprites/remine-jump.png',
   hit: '/sprites/remine-hit.png',
 };
+
+// 달리기는 세 컷을 순서대로
+const RUN_FRAMES = [
+  '/sprites/remine-run.png',
+  '/sprites/remine-run-a.png',
+  '/sprites/remine-run-b.png',
+];
 
 const SPRITE_SIZE = 1.8;
 
@@ -17,7 +25,8 @@ export class Player {
   speed: number;
 
   private geometry = new THREE.PlaneGeometry(SPRITE_SIZE, SPRITE_SIZE);
-  private textures: Record<PlayerState, THREE.Texture>;
+  private textures: Record<StillState, THREE.Texture>;
+  private runTextures: THREE.Texture[];
   private material: THREE.MeshBasicMaterial;
 
   private state: PlayerState = 'idle';
@@ -25,6 +34,16 @@ export class Player {
   private hitTimer = 0; // 피격 모션이 남은 시간(초)
   private readonly hitDuration = 0.6;
   private isDead = false; // 게임오버. 입력을 막고 피격 모션으로 굳는다
+
+  // 달리기 프레임 재생
+  private runIndex = 0;
+  private runTimer = 0;
+  private readonly frameDuration = 0.1; // 한 컷이 머무는 시간(초)
+
+  // 그림 위에 얹는 반동. 프레임이 이미 움직이니 살짝만 준다
+  private runPhase = 0;
+  private readonly stepRate = 11; // 발걸음 빠르기
+  private readonly bobHeight = 0.06; // 튀어오르는 높이(칸)
 
   private velocityY = 0;
   private readonly gravity = 54; // 중력 가속도 (칸/초²)
@@ -53,10 +72,10 @@ export class Player {
 
     this.textures = {
       idle: load(SPRITES.idle),
-      run: load(SPRITES.run),
       jump: load(SPRITES.jump),
       hit: load(SPRITES.hit),
     };
+    this.runTextures = RUN_FRAMES.map(load);
 
     this.material = new THREE.MeshBasicMaterial({
       map: this.textures.idle,
@@ -89,11 +108,32 @@ export class Player {
     this.hit();
   }
 
-  private setState(next: PlayerState): void {
+  private setState(next: StillState): void {
     if (this.state === next) return;
     this.state = next;
-    this.material.map = this.textures[next];
+    this.setTexture(this.textures[next]);
+  }
+
+  private setTexture(texture: THREE.Texture): void {
+    if (this.material.map === texture) return;
+    this.material.map = texture;
     this.material.needsUpdate = true;
+  }
+
+  private updateRunFrame(delta: number): void {
+    if (this.state !== 'run') {
+      this.state = 'run';
+      this.runIndex = 0;
+      this.runTimer = 0;
+    }
+
+    this.runTimer += delta;
+    while (this.runTimer >= this.frameDuration) {
+      this.runTimer -= this.frameDuration;
+      this.runIndex = (this.runIndex + 1) % this.runTextures.length;
+    }
+
+    this.setTexture(this.runTextures[this.runIndex]);
   }
 
   private updateJump(delta: number): void {
@@ -108,6 +148,28 @@ export class Player {
         this.velocityY = 0;
       }
     }
+  }
+
+  /** 달릴 때만 반동을 준다. 점프 중에는 물리가 y를 잡고 있으니 건드리지 않는다. */
+  private updateRunBob(delta: number, moveX: number): void {
+    if (this.isJumping) return;
+
+    if (moveX === 0) {
+      this.runPhase = 0;
+      this.mesh.position.y = this.floorY;
+      this.mesh.scale.y = 1;
+      this.mesh.rotation.z = 0;
+      return;
+    }
+
+    this.runPhase += delta * this.stepRate;
+
+    const bob = Math.abs(Math.sin(this.runPhase)) * this.bobHeight;
+    this.mesh.position.y = this.floorY + bob;
+    // 발이 땅에 닿는 순간(bob이 0에 가까울 때) 살짝 눌린다
+    this.mesh.scale.y = 1 - (this.bobHeight - bob) * 0.6;
+    // 가는 방향으로 몸을 조금 기울인다
+    this.mesh.rotation.z = this.facing * Math.sin(this.runPhase * 0.5) * 0.035;
   }
 
   update(delta: number): void {
@@ -149,12 +211,14 @@ export class Player {
     if (moveX !== 0) this.facing = moveX > 0 ? 1 : -1;
     this.mesh.scale.x = this.facing;
 
+    this.updateRunBob(delta, moveX);
+
     if (this.hitTimer > 0) {
       this.setState('hit');
     } else if (this.isJumping) {
       this.setState('jump');
     } else if (moveX !== 0) {
-      this.setState('run');
+      this.updateRunFrame(delta);
     } else {
       this.setState('idle');
     }
@@ -168,6 +232,9 @@ export class Player {
     this.material.dispose();
 
     for (const texture of Object.values(this.textures)) {
+      texture.dispose();
+    }
+    for (const texture of this.runTextures) {
       texture.dispose();
     }
   }
