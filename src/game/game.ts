@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAY_AREA, LIFE } from './constants.ts';
+import { PLAY_AREA, LIFE, CARD } from './constants.ts';
 import { Card } from './card.ts';
 import { Player } from './player.ts';
 import { Score } from './score.ts';
@@ -137,7 +137,7 @@ export default class Game {
           this.score.add(1);
           this.emitChange();
         }
-      } else if (card.position.y < -8) {
+      } else if (card.position.y < CARD.despawnY) {
         // 카드가 화면 아래로 나갔을때
         this.removeCard(i);
       }
@@ -151,19 +151,19 @@ export default class Game {
   private resize(): void {}
 
   private spawnCard(): void {
-    const type = Math.random() < 0.2 ? 'bomb' : 'normal'; // 20% 확률
+    const type = Math.random() < CARD.bombChance ? 'bomb' : 'normal';
     const material = type === 'bomb' ? this.bombMaterial : this.cardMaterial;
 
     const card = new Card({
       geometry: this.cardGeometry,
       material,
-      speed: 3,
+      speed: CARD.speed,
       type,
     });
 
     card.position.set(
       THREE.MathUtils.randFloat(PLAY_AREA.min, PLAY_AREA.max),
-      8,
+      CARD.spawnY,
       0,
     );
 
