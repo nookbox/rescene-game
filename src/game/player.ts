@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLAY_AREA } from './constants.ts';
+import { PLAY_AREA, GROUND_Y } from './constants.ts';
 
 type PlayerState = 'idle' | 'run' | 'jump' | 'hit';
 
@@ -49,7 +49,7 @@ export class Player {
   private readonly gravity = 54; // 중력 가속도 (칸/초²)
   private readonly jumpForce = 16; // 점프 초기 속도 (칸/초)
   private isJumping = false;
-  private readonly floorY = -3; // 바닥 높이 = 시작 높이
+  private readonly floorY = GROUND_Y; // 바닥 높이 = 시작 높이
 
   private keys: Record<string, boolean> = {};
 
@@ -84,7 +84,7 @@ export class Player {
     });
 
     this.mesh = new THREE.Mesh(this.geometry, this.material);
-    this.mesh.position.set(0, this.floorY, 0);
+    this.mesh.position.set(0, this.floorY, 0); // 플레이어 시작 위치
     this.speed = speed;
 
     window.addEventListener('keydown', this.onKeyDown);

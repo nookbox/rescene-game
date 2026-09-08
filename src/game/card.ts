@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 
-export type CardType = 'normal' | 'special' | 'bomb';
+export type CardType = 'normal' | 'special';
 
-interface CardOptions {
+export interface CardOptions {
   geometry: THREE.BufferGeometry;
   material: THREE.Material;
   speed?: number;
