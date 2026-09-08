@@ -27,6 +27,8 @@ export default class Game {
 
   private spawnTimer = 0;
 
+  // 게임 시작 후 흐른 시간. 폭탄이 언제부터 나올지 판단하는 기준
+  private elapsed = 0;
   private spawnTimerBomb = 0;
   // 지금 폭탄 스폰 간격. 시간이 갈수록 짧아져서 상수가 아니라 상태다
   private bombSpawnInterval: number = BOMB.spawnIntervalStart;
@@ -119,6 +121,8 @@ export default class Game {
       return;
     }
 
+    this.elapsed += delta;
+
     this.spawnTimer += delta;
     if (this.spawnTimer >= CARD.spawnInterval) {
       this.spawnTimer = 0;
@@ -137,10 +141,14 @@ export default class Game {
       this.bombSpeed + BOMB.speedRampPerSec * delta,
     );
 
-    this.spawnTimerBomb += delta;
-    if (this.spawnTimerBomb >= this.bombSpawnInterval) {
-      this.spawnTimerBomb = 0;
-      this.spawnBomb();
+    // 초반 유예 시간. 난이도는 위에서 계속 오르고 있으므로,
+    // 폭탄이 처음 나올 때는 이미 그만큼 빠르고 잦은 상태로 시작한다
+    if (this.elapsed >= BOMB.startDelay) {
+      this.spawnTimerBomb += delta;
+      if (this.spawnTimerBomb >= this.bombSpawnInterval) {
+        this.spawnTimerBomb = 0;
+        this.spawnBomb();
+      }
     }
 
     // 지우면서 도는 루프는 거꾸로 돌려야 인덱스가 안 꼬인다
