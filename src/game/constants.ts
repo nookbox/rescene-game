@@ -22,6 +22,8 @@ export const CARD = {
 // 폭탄 관련 상수
 export const BOMB = {
   groundY: GROUND_Y, // 플레이어와 같은 바닥에 선다
+  spriteSize: 1.8, // 그림 크기(칸). 플레이어와 같게 두면 발끝이 같은 줄에 선다
+  frameDuration: 0.12, // 걷기 한 컷이 머무는 시간(초)
   spawnX: 13, // 좌우 화면 밖. 여기서 걸어 들어온다
   despawnX: 14, // 반대편 이 지점을 넘어가면 지운다
   startDelay: 5.5, // 시작 후 이 시간 동안은 폭탄이 안 나온다. 카드 줍는 데 적응할 시간

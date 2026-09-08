@@ -5,7 +5,7 @@ import { Player } from './player.ts';
 import { Score } from './score.ts';
 import { Life } from './life.ts';
 import type { GameOptions } from './types.ts';
-import { Bomb, type BombDirection } from './bomb.ts';
+import { Bomb, BOMB_RUN_FRAMES, type BombDirection } from './bomb.ts';
 
 export default class Game {
   private canvas: HTMLCanvasElement;
@@ -45,9 +45,12 @@ export default class Game {
   private cardGeometry = new THREE.BoxGeometry(0.6, 0.9, 0.05);
   private cardMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000 });
 
-  // 폭탄
-  private bombGeometry = new THREE.BoxGeometry(1, 1, 0.05);
-  private bombMaterial = new THREE.MeshBasicMaterial({ color: 0x9900ff });
+  // 폭탄. 재질은 프레임이 제각각 돌아가야 해서 폭탄이 각자 만든다
+  private bombGeometry = new THREE.PlaneGeometry(
+    BOMB.spriteSize,
+    BOMB.spriteSize,
+  );
+  private bombTextures: THREE.Texture[];
 
   private scene = new THREE.Scene();
   private renderer: THREE.WebGLRenderer;
@@ -73,6 +76,14 @@ export default class Game {
 
     this.camera.position.set(0, 2, 8);
     this.camera.lookAt(0, 1, 0);
+
+    const loader = new THREE.TextureLoader();
+    this.bombTextures = BOMB_RUN_FRAMES.map((path) => {
+      const texture = loader.load(path);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.anisotropy = 8;
+      return texture;
+    });
 
     this.player = new Player();
     this.scene.add(this.player.mesh);
@@ -230,15 +241,13 @@ export default class Game {
   }
 
   private spawnBomb(): void {
-    const material = this.bombMaterial;
-
     // 어느 쪽에서 나올지
     const fromLeft = Math.random() < 0.5;
     const direction: BombDirection = fromLeft ? 1 : -1;
 
     const bomb = new Bomb({
       geometry: this.bombGeometry,
-      material,
+      textures: this.bombTextures,
       speed: this.bombSpeed,
       direction,
     });
@@ -260,6 +269,7 @@ export default class Game {
   private removeBomb(index: number): void {
     const bomb = this.bombs[index];
     this.scene.remove(bomb.mesh);
+    bomb.dispose(); // 폭탄마다 재질을 따로 만들었으니 여기서 풀어준다
     this.bombs.splice(index, 1);
   }
 
@@ -269,6 +279,10 @@ export default class Game {
 
     this.cardGeometry.dispose();
     this.cardMaterial.dispose();
+
+    this.bombGeometry.dispose();
+    for (const bomb of this.bombs) bomb.dispose();
+    for (const texture of this.bombTextures) texture.dispose();
 
     this.player.dispose();
     this.renderer.dispose();
