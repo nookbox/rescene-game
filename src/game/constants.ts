@@ -33,4 +33,5 @@ export const BOMB = {
   spawnIntervalStart: 5, // 시작 간격(초). 한 마리가 화면을 건너는 데 9초쯤 걸린다
   spawnIntervalMin: 1.2, // 아무리 빨라져도 이보다 짧아지지 않는다. 없으면 0으로 수렴해 한꺼번에 쏟아진다
   spawnRampPerSec: 0.03, // 1초마다 간격이 이만큼씩 줄어든다
+  spawnJitter: 0.5, // 간격을 흔드는 폭. 0.5면 계산된 간격의 50%~150% 사이에서 랜덤하게 나온다
 } as const;

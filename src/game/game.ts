@@ -34,6 +34,8 @@ export default class Game {
   private bombSpawnInterval: number = BOMB.spawnIntervalStart;
   // 다음에 나올 폭탄의 걷는 속도. 이것도 시간에 따라 변한다
   private bombSpeed: number = BOMB.speedStart;
+  // 다음 폭탄까지 기다릴 시간. 한 마리 나올 때마다 새로 뽑는다
+  private nextBombDelay: number = BOMB.spawnIntervalStart;
 
   private cards: Card[] = [];
   private bombs: Bomb[] = [];
@@ -145,8 +147,9 @@ export default class Game {
     // 폭탄이 처음 나올 때는 이미 그만큼 빠르고 잦은 상태로 시작한다
     if (this.elapsed >= BOMB.startDelay) {
       this.spawnTimerBomb += delta;
-      if (this.spawnTimerBomb >= this.bombSpawnInterval) {
+      if (this.spawnTimerBomb >= this.nextBombDelay) {
         this.spawnTimerBomb = 0;
+        this.nextBombDelay = this.rollBombDelay();
         this.spawnBomb();
       }
     }
@@ -214,6 +217,16 @@ export default class Game {
 
     this.scene.add(card.mesh);
     this.cards.push(card);
+  }
+
+  /**
+   * 다음 폭탄까지 기다릴 시간을 뽑는다.
+   */
+  private rollBombDelay(): number {
+    return (
+      this.bombSpawnInterval *
+      THREE.MathUtils.randFloat(1 - BOMB.spawnJitter, 1 + BOMB.spawnJitter)
+    );
   }
 
   private spawnBomb(): void {
