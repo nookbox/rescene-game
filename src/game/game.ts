@@ -170,6 +170,19 @@ export default class Game {
       const bomb = this.bombs[i];
       bomb.update(delta);
 
+      if (bomb.position.distanceTo(this.player.position) < 0.8) {
+        this.life.decrease();
+        this.player.hit();
+        this.removeBomb(i);
+        this.emitChange();
+
+        if (this.life.isDead) {
+          this.dying = true;
+          this.deathTimer = this.deathDuration;
+          this.player.die();
+        }
+      }
+
       if (bomb.isOffScreen) this.removeBomb(i);
     }
 
