@@ -2,6 +2,7 @@ import { useState } from 'react';
 import GameCanvas from './components/game-canvas.js';
 import { GameState } from './game/types.js';
 import { GameOverScene } from './components/scenes/game-over-scene.js';
+import { LIFE } from './game/constants.js';
 
 type SceneName = 'hero' | 'playing' | 'gameover';
 
@@ -25,8 +26,26 @@ export default function App() {
         key={runId}
       />
 
-      <div className='absolute top-0 left-0'>Score: {state.score}</div>
-      <div className='absolute top-5 left-0'>Life: {state.life}</div>
+      <div className='absolute top-3 left-3 flex flex-col gap-2'>
+        <div>Score: {state.score}</div>
+
+        <div className='flex gap-1'>
+          {Array.from({ length: LIFE }, (_, i) => (
+            <img
+              key={i}
+              src={
+                i < state.life
+                  ? '/sprites/ui/heart-full.png'
+                  : '/sprites/ui/heart-empty.png'
+              }
+              alt=''
+              width={28}
+              height={28}
+              style={{ imageRendering: 'pixelated' }}
+            />
+          ))}
+        </div>
+      </div>
 
       {/* TODO: HERO 페이지 */}
 

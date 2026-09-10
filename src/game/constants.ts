@@ -37,3 +37,4 @@ export const BOMB = {
   spawnRampPerSec: 0.03, // 1초마다 간격이 이만큼씩 줄어든다
   spawnJitter: 0.5, // 간격을 흔드는 폭. 0.5면 계산된 간격의 50%~150% 사이에서 랜덤하게 나온다
 } as const;
+

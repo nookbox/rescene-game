@@ -181,6 +181,8 @@ export default class Game {
           this.deathTimer = this.deathDuration;
           this.player.die();
         }
+
+        continue; // 이미 지운 폭탄이다. 아래 판정으로 내려가면 엉뚱한 인덱스를 건드린다
       }
 
       if (bomb.isOffScreen) this.removeBomb(i);
@@ -300,8 +302,4 @@ export default class Game {
     this.player.dispose();
     this.renderer.dispose();
   }
-}
-
-if (import.meta.hot) {
-  import.meta.hot.accept(() => window.location.reload());
 }
