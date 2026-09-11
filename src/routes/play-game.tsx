@@ -69,7 +69,9 @@ function PlayGame() {
   return (
     <Canvas camera={{ position: [0, 3, 6] }}>
       <Player
-        position={[tile.x * TILE_SIZE, 0, -tile.z * TILE_SIZE]}
+        // position={[tile.x * TILE_SIZE, 0, -tile.z * TILE_SIZE]}
+        tileX={tile.x}
+        tileZ={tile.z}
         color='red'
       />
 
