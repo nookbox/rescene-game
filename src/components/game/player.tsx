@@ -11,7 +11,7 @@ type PlayerProps = ThreeElements['group'] & {
 
 export function Player({ color = 'white', ...props }: PlayerProps) {
   return (
-    // group은 빈 컨테이너. 바깥에서 준 칸 좌표를 그대로 받는다.
+    // group은 여러 mesh를 묶는 용도고 div와 비슷하다.
     <group {...props}>
       {/* mesh는 중심이 원점이라, 높이 절반만큼 올려야 발이 바닥에 닿는다.
           이 계산을 여기서 끝내두면 바깥은 y를 신경 쓸 필요가 없다. */}
