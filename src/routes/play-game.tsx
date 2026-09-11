@@ -21,22 +21,42 @@ function PlayGame() {
   });
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      e.preventDefault();
-      console.log(`Key: ${e.key}, Code: ${e.code}`);
+    // 좌우 한계. width가 11이면 -5 ~ 5
+    const limit = Math.floor(LANE.width / 2);
 
-      if (e.key === 'ArrowUp') {
-        setTile((prev) => ({ ...prev, z: prev.z - 1 }));
-      }
-      if (e.key === 'ArrowDown') {
-        setTile((prev) => ({ ...prev, z: prev.z + 1 }));
-      }
-      if (e.key === 'ArrowLeft' && tile.x > -Math.floor(LANE.width / 2)) {
-        setTile((prev) => ({ ...prev, x: prev.x - 1 }));
-      }
-      if (e.key === 'ArrowRight' && tile.x < Math.floor(LANE.width / 2)) {
-        setTile((prev) => ({ ...prev, x: prev.x + 1 }));
-      }
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isArrow =
+        e.key === 'ArrowUp' ||
+        e.key === 'ArrowDown' ||
+        e.key === 'ArrowLeft' ||
+        e.key === 'ArrowRight';
+
+      if (!isArrow) return;
+
+      // 방향키는 페이지를 위아래로 스크롤시키므로 막음
+      e.preventDefault();
+
+      // 경계 검사를 업데이터 안에서 prev로 한다.
+      // 바깥의 tile을 읽지 않으므로 의존성 배열을 비워둘 수 있다.
+      setTile((prev) => {
+        switch (e.key) {
+          case 'ArrowUp':
+            // 마지막 타일보다 앞으로는 못간다
+            return prev.z < lanes.length - 1
+              ? { ...prev, z: prev.z + 1 }
+              : prev;
+
+          case 'ArrowDown':
+            // 출발선보다 뒤로는 못 간다
+            return prev.z > 0 ? { ...prev, z: prev.z - 1 } : prev;
+          case 'ArrowLeft':
+            return prev.x > -limit ? { ...prev, x: prev.x - 1 } : prev;
+          case 'ArrowRight':
+            return prev.x < limit ? { ...prev, x: prev.x + 1 } : prev;
+          default:
+            return prev;
+        }
+      });
     };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -49,7 +69,7 @@ function PlayGame() {
   return (
     <Canvas camera={{ position: [0, 3, 6] }}>
       <Player
-        position={[tile.x * TILE_SIZE, 0, tile.z * TILE_SIZE]}
+        position={[tile.x * TILE_SIZE, 0, -tile.z * TILE_SIZE]}
         color='red'
       />
 
