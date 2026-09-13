@@ -9,8 +9,8 @@ export const LANE = {
 };
 
 export const CAMERA = {
-  height: 4,
-  distance: 6,
+  height: 7,
+  distance: 9,
   // 클수록 빠르게 따라붙는다
   follow: 4,
 };
@@ -24,11 +24,12 @@ export const FACING = {
   down: Math.PI, // 뒤 (+Z)
 };
 
-// 캐릭터 상자 치수 (가로, 높이, 깊이).
-// 그리기뿐 아니라 충돌 판정에도 쓰이므로 공용 자리에 둔다.
+// 캐릭터 치수 (가로, 높이, 깊이).
+// height는 모델을 얼마나 키울지 정하는 기준,
+// width는 차와의 충돌 판정에 쓰인다(car.tsx의 HIT_DISTANCE).
 export const PLAYER = {
   width: 0.7,
-  height: 1.5,
+  height: 0.9,
   depth: 0.7,
 };
 

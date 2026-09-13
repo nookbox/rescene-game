@@ -14,12 +14,49 @@ export const Route = createFileRoute('/play-game')({
   component: PlayGame,
 });
 
+const BEST_SCORE_KEY = 'rescene-best-score';
+
+// 사생활 보호 모드 등에서 localStorage 접근 자체가 막히는 브라우저가 있다.
+function readBestScore() {
+  try {
+    return Number(localStorage.getItem(BEST_SCORE_KEY)) || 0;
+  } catch {
+    return 0;
+  }
+}
+
+function writeBestScore(value: number) {
+  try {
+    localStorage.setItem(BEST_SCORE_KEY, String(value));
+  } catch {
+    // 저장 못 해도 게임은 굴러가야 한다
+  }
+}
+
 function PlayGame() {
   // facing = 바라보는 방향의 Y축 회전각(라디안). -Z가 앞이므로 0이 전방.
-  const [tile, setTile] = useState({ x: 0, z: 0, facing: 0 });
+  const [tile, setTile] = useState({ x: 0, z: 0, facing: 0, score: 0 });
 
   const [isGameOver, setIsGameOver] = useState(false);
   const [runId, setRunId] = useState(0);
+
+  const [best, setBest] = useState(readBestScore);
+  const [isNewBest, setIsNewBest] = useState(false);
+
+  // 점수 = 가장 멀리 간 칸 수. tile과 같이 움직이므로 한 덩어리로 둔다.
+  // 따로 두고 effect로 맞추면 렌더가 한 번 더 도는 데다 순서도 어긋난다.
+  const score = tile.score;
+
+  // 죽는 순간에만 최고 점수를 갱신한다
+  const handleHit = () => {
+    setIsGameOver(true);
+
+    if (score > best) {
+      setBest(score);
+      setIsNewBest(true);
+      writeBestScore(score);
+    }
+  };
 
   const { ambient, spot } = useControls('조명', {
     ambient: { value: 1.5, min: 0, max: 5, step: 0.1 },
@@ -50,11 +87,20 @@ function PlayGame() {
         // 막혀서 못 움직이더라도 방향은 바꾼다.
         // 벽에 붙어서 좌를 누르면 제자리에서 좌를 바라보게 된다.
         switch (e.key) {
-          case 'ArrowUp':
+          case 'ArrowUp': {
             // 마지막 타일보다 앞으로는 못간다
-            return prev.z < lanes.length - 1
-              ? { ...prev, z: prev.z + 1, facing: FACING.up }
-              : { ...prev, facing: FACING.up };
+            if (prev.z >= lanes.length - 1) return { ...prev, facing: FACING.up };
+
+            const z = prev.z + 1;
+
+            // 뒤로 물러났다 와도 점수가 깎이지 않게 최댓값만 남긴다
+            return {
+              ...prev,
+              z,
+              facing: FACING.up,
+              score: Math.max(prev.score, z),
+            };
+          }
 
           case 'ArrowDown':
             // 출발선보다 뒤로는 못 간다
@@ -94,7 +140,6 @@ function PlayGame() {
           tileX={tile.x}
           tileZ={tile.z}
           facing={tile.facing}
-          color='red'
         />
 
         <ambientLight intensity={ambient} />
@@ -120,25 +165,47 @@ function PlayGame() {
               lane?.cars?.map((startX, carIndex) => (
                 <Car
                   key={carIndex}
+                  model={lane.model}
                   position={[startX, 0, -index * TILE_SIZE]}
                   speed={lane.speed}
                   playerTileX={tile.x}
                   playerTileZ={tile.z}
                   laneIndex={index}
-                  onHit={() => setIsGameOver(true)}
+                  onHit={handleHit}
                 />
               ))}
           </Fragment>
         ))}
       </Canvas>
+      {/* 플레이 중 점수. 캔버스 위에 얹는다 */}
+      <div className='pointer-events-none absolute top-6 left-6 text-white drop-shadow'>
+        <p className='text-5xl font-bold tabular-nums'>{score}</p>
+        <p className='text-sm text-white/70 tabular-nums'>BEST {best}</p>
+      </div>
+
       {isGameOver && (
-        <div className='absolute inset-0 flex items-center justify-center bg-black/70 text-4xl font-bold text-red-600'>
-          Game Over
+        <div className='absolute inset-0 flex flex-col items-center justify-center gap-6 bg-black/70'>
+          <p className='text-4xl font-bold text-red-600'>Game Over</p>
+
+          <div className='text-center text-white'>
+            <p className='text-7xl font-bold tabular-nums'>{score}</p>
+            <p className='mt-1 text-sm text-white/70 tabular-nums'>
+              BEST {best}
+            </p>
+          </div>
+
+          {isNewBest && (
+            <p className='rounded-full bg-amber-400 px-4 py-1 text-sm font-bold text-amber-950'>
+              NEW BEST!
+            </p>
+          )}
+
           <Button
             onClick={() => {
               setRunId((prev) => prev + 1);
               setIsGameOver(false);
-              setTile({ x: 0, z: 0, facing: 0 });
+              setTile({ x: 0, z: 0, facing: 0, score: 0 });
+              setIsNewBest(false);
             }}
           >
             다시하기

@@ -1,21 +1,32 @@
-import { CAR, LANE, PLAYER, TILE_SIZE } from '@/utils/constants';
+import { LANE, PLAYER, TILE_SIZE } from '@/utils/constants';
+import {
+  CAR_MODELS,
+  CAR_SCALE,
+  carLength,
+  carModelPath,
+  type CarModelName,
+} from '@/utils/cars';
+import { Clone, useGLTF } from '@react-three/drei';
 import { ThreeElements, useFrame } from '@react-three/fiber';
 import { useRef } from 'react';
 import * as THREE from 'three';
 
 type CarProps = ThreeElements['group'] & {
+  model: CarModelName;
   speed?: number;
-  onHit: () => void;
+  onHit?: () => void;
   playerTileX: number;
   playerTileZ: number;
   laneIndex: number;
 };
 
-// 두 상자의 중심이 이보다 가까우면 겹친 것.
-// 각자 반폭을 더한 값이 "닿기 시작하는 거리"다.
-const HIT_DISTANCE = CAR.width / 2 + PLAYER.width / 2;
+// 모델 원본은 Z축으로 길쭉하다. X축으로 달리게 하려면 90도 돌려야 한다.
+// 뒤를 보고 달리는 것처럼 보이면 이 부호를 뒤집으면 된다.
+const FACE_RIGHT = Math.PI / 2;
+const FACE_LEFT = -Math.PI / 2;
 
 export function Car({
+  model,
   speed = 2,
   playerTileX,
   playerTileZ,
@@ -24,8 +35,13 @@ export function Car({
   ...props
 }: CarProps) {
   const carRef = useRef<THREE.Group>(null);
-
   const alreadyNotifiedRef = useRef(false);
+
+  const spec = CAR_MODELS[model];
+  const { scene } = useGLTF(carModelPath(model));
+
+  // 차마다 길이가 다르므로 판정 거리도 차마다 다르다
+  const hitDistance = carLength(model) / 2 + PLAYER.width / 2;
 
   useFrame((_state, delta) => {
     if (!carRef.current) return;
@@ -39,7 +55,6 @@ export function Car({
     }
 
     // 왼쪽으로 가는 차(speed가 음수)는 반대.
-    // 이 검사가 없으면 음수 속도일 때 왼쪽으로 무한히 가버린다.
     if (speed < 0 && car.position.x < -LANE.wrap) {
       car.position.x = LANE.wrap;
     }
@@ -51,10 +66,10 @@ export function Car({
     const playerX = playerTileX * TILE_SIZE;
     const gap = Math.abs(car.position.x - playerX);
 
-    if (gap < HIT_DISTANCE) {
+    if (gap < hitDistance) {
       if (!alreadyNotifiedRef.current) {
-        onHit();
         alreadyNotifiedRef.current = true;
+        onHit?.();
       }
     } else {
       alreadyNotifiedRef.current = false;
@@ -63,10 +78,19 @@ export function Car({
 
   return (
     <group ref={carRef} {...props}>
-      <mesh position={[0, CAR.height / 2, 0]}>
-        <boxGeometry args={[CAR.width, CAR.height, CAR.depth]} />
-        <meshStandardMaterial color='red' />
-      </mesh>
+      {/* useGLTF가 준 scene은 하나뿐이라 여러 곳에 그대로 쓰면 마지막 하나만 보인다.
+          Clone이 매번 복사본을 만들어준다. */}
+      <Clone
+        object={scene}
+        scale={CAR_SCALE}
+        position={[0, spec.lift * CAR_SCALE, 0]}
+        rotation={[0, speed >= 0 ? FACE_RIGHT : FACE_LEFT, 0]}
+      />
     </group>
   );
 }
+
+// 미리 불러두면 게임 중에 차가 늦게 나타나는 일이 줄어든다
+Object.keys(CAR_MODELS).forEach((name) => {
+  useGLTF.preload(carModelPath(name as CarModelName));
+});

@@ -1,7 +1,16 @@
+import { useGLTF } from '@react-three/drei';
 import { useFrame } from '@react-three/fiber';
 import { useEffect, useRef } from 'react';
 import * as THREE from 'three';
 import { PLAYER, TILE_SIZE } from '@/utils/constants';
+
+const MODEL_URL = '/models/character-male-a.glb';
+
+// 모델 원본 높이는 0.67. PLAYER.height에 맞춰 키운다.
+const MODEL_SCALE = PLAYER.height / 0.6713;
+
+// Kenney 캐릭터는 +Z를 보고 서 있다. 우리 약속은 -Z가 앞이라 반 바퀴 돌린다.
+const MODEL_FACING_FIX = Math.PI;
 
 // 한 칸 뛰는 데 걸리는 시간(초)과 포물선 최고 높이
 const JUMP_DURATION = 0.2;
@@ -14,15 +23,10 @@ type PlayerProps = {
   tileX: number;
   tileZ: number;
   facing: number;
-  color?: string;
 };
 
-export function Player({
-  color = 'white',
-  tileX,
-  tileZ,
-  facing,
-}: PlayerProps) {
+export function Player({ tileX, tileZ, facing }: PlayerProps) {
+  const { scene } = useGLTF(MODEL_URL);
   const moveRef = useRef<THREE.Group>(null);
   const jumpRef = useRef<THREE.Group>(null);
 
@@ -77,20 +81,14 @@ export function Player({
     <group ref={moveRef}>
       {/* 안쪽 group이 점프 높이(y)와 바라보는 방향(rotation.y)을 담당 */}
       <group ref={jumpRef}>
-        {/* mesh는 중심이 원점이라, 높이 절반만큼 올려야 발이 바닥에 닿는다.
-          이 계산을 여기서 끝내두면 바깥은 y를 신경 쓸 필요가 없다. */}
-        <mesh position={[0, PLAYER.height / 2, 0]}>
-          <boxGeometry args={[PLAYER.width, PLAYER.height, PLAYER.depth]} />
-          <meshStandardMaterial color={color} />
-        </mesh>
-
-        {/* 임시: 상자라 회전이 안 보여서 붙인 "코".
-            모델을 넣으면 지울 것 */}
-        <mesh position={[0, PLAYER.height * 0.7, -PLAYER.depth / 2]}>
-          <boxGeometry args={[0.2, 0.2, 0.2]} />
-          <meshStandardMaterial color='white' />
-        </mesh>
+        {/* 모델 자체 방향 보정. 바깥 회전(facing)과 섞이지 않게 한 겹 더 감쌌다 */}
+        <group rotation={[0, MODEL_FACING_FIX, 0]} scale={MODEL_SCALE}>
+          <primitive object={scene} />
+        </group>
       </group>
     </group>
   );
 }
+
+// 게임 시작 전에 미리 받아둔다. 첫 점프에서 끊기지 않게.
+useGLTF.preload(MODEL_URL);
