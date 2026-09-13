@@ -3,6 +3,7 @@ import {
   CAR_MODELS,
   CAR_SCALE,
   carLength,
+  carWidth,
   carModelPath,
   type CarModelName,
 } from '@/utils/cars';
@@ -14,9 +15,10 @@ import * as THREE from 'three';
 type CarProps = ThreeElements['group'] & {
   model: CarModelName;
   speed?: number;
-  onHit?: () => void;
-  playerTileX: number;
-  playerTileZ: number;
+  // 치인 차의 속도를 넘긴다. 부호가 곧 날아갈 방향.
+  onHit?: (carSpeed: number) => void;
+  /** 플레이어가 화면에 실제로 그려지는 위치 */
+  playerPos: { current: { x: number; z: number } };
   laneIndex: number;
 };
 
@@ -28,8 +30,7 @@ const FACE_LEFT = -Math.PI / 2;
 export function Car({
   model,
   speed = 2,
-  playerTileX,
-  playerTileZ,
+  playerPos,
   laneIndex,
   onHit,
   ...props
@@ -41,7 +42,8 @@ export function Car({
   const { scene } = useGLTF(carModelPath(model));
 
   // 차마다 길이가 다르므로 판정 거리도 차마다 다르다
-  const hitDistance = carLength(model) / 2 + PLAYER.width / 2;
+  const hitX = carLength(model) / 2 + PLAYER.hitWidth / 2;
+  const hitZ = carWidth(model) / 2 + PLAYER.hitWidth / 2;
 
   useFrame((_state, delta) => {
     if (!carRef.current) return;
@@ -59,17 +61,19 @@ export function Car({
       car.position.x = LANE.wrap;
     }
 
-    // 같은 레인인가
-    if (laneIndex !== playerTileZ) return;
+    // 칸 번호가 아니라 실제로 그려진 위치로 판정한다.
+    // 칸을 쓰면 키를 누른 순간 이미 도착한 것으로 쳐서,
+    // 아직 이전 레인에 서 있는데 건너편 차에 치인다.
+    const laneZ = -laneIndex * TILE_SIZE;
+    const gapZ = Math.abs(playerPos.current.z - laneZ);
+    if (gapZ >= hitZ) return;
 
-    // x가 겹치는가 — 중심 사이 거리로 판정
-    const playerX = playerTileX * TILE_SIZE;
-    const gap = Math.abs(car.position.x - playerX);
+    const gapX = Math.abs(car.position.x - playerPos.current.x);
 
-    if (gap < hitDistance) {
+    if (gapX < hitX) {
       if (!alreadyNotifiedRef.current) {
         alreadyNotifiedRef.current = true;
-        onHit?.();
+        onHit?.(speed);
       }
     } else {
       alreadyNotifiedRef.current = false;

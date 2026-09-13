@@ -1,11 +1,23 @@
 import { LANE } from '@/utils/constants';
 import { CAR_MODELS, carLength, type CarModelName } from '@/utils/cars';
 
-type Lane =
+export type Lane =
   | { type: 'safe' }
-  | { type: 'road'; speed: number; cars: number[]; model: CarModelName };
+  | {
+      type: 'road';
+      speed: number;
+      cars: number[];
+      model: CarModelName;
+      /** 횡단보도 줄무늬를 그릴지 */
+      crosswalk: boolean;
+    };
 
-const LANE_COUNT = 40;
+// 난이도가 최대치에 도달하는 줄 수. 무한 맵이라 끝이 없으므로
+// 진행도 t를 이 값으로 나눠서 1에서 멈추게 한다.
+const RAMP_LANES = 60;
+
+// 한 번에 만들어 붙이는 줄 수. 한 줄씩 늘리면 리렌더가 잦다.
+const CHUNK = 20;
 
 // 출발하자마자 차에 치이면 억울하다. 앞 두 줄은 무조건 안전지대.
 const SAFE_START = 2;
@@ -44,6 +56,9 @@ const SLOW_WEIGHT = { start: 1, end: 0.5 };
 // 빠른 차 도로가 연달아 붙을 수 있는 최대 줄 수.
 // 1이면 빠른 도로 바로 다음 도로는 반드시 느린 차가 된다.
 const MAX_FAST_IN_A_ROW = 1;
+
+// 도로에 횡단보도가 그려질 확률
+const CROSSWALK_CHANCE = 0.3;
 
 function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
@@ -127,20 +142,23 @@ function createRoad(t: number, allowFast: boolean) {
   return {
     type: 'road' as const,
     model,
+    crosswalk: Math.random() < CROSSWALK_CHANCE,
     speed: speed * (Math.random() < 0.5 ? 1 : -1),
     cars: createCars(count, minGap, carLength(model)),
   };
 }
 
-export function createLanes() {
-  const lanes: Lane[] = [];
+export type LaneStream = ReturnType<typeof createLaneStream>;
 
-  // 도로가 몇 줄 연속으로 나왔는지
+/**
+ * 필요한 만큼 이어서 만들어내는 레인 생성기.
+ * 연속 제한 카운터를 호출 사이에 유지해야 이어붙인 지점에서 규칙이 깨지지 않는다.
+ */
+export function createLaneStream() {
+  const lanes: Lane[] = [];
   let roadsInARow = 0;
-  // 빠른 차 도로가 몇 줄 연속으로 나왔는지
-  let fastInARow = 0;
-  // 안전지대가 몇 줄 연속으로 나왔는지
   let safeInARow = 0;
+  let fastInARow = 0;
 
   const pushSafe = () => {
     lanes.push({ type: 'safe' });
@@ -148,23 +166,19 @@ export function createLanes() {
     safeInARow += 1;
   };
 
-  for (let i = 0; i < LANE_COUNT; i++) {
+  const pushOne = (i: number) => {
     if (i < SAFE_START) {
       pushSafe();
-      continue;
+      return;
     }
 
-    // 0(출발) → 1(끝). 난이도 보간에 쓰는 진행도
-    const t = i / (LANE_COUNT - 1);
-
+    const t = Math.min(i / RAMP_LANES, 1);
     const mustRest = roadsInARow >= MAX_ROADS_IN_A_ROW;
-
-    // 안전지대를 시작했으면 최소 MIN_SAFE_IN_A_ROW 줄은 채우고 넘어간다
     const needMoreSafe = safeInARow > 0 && safeInARow < MIN_SAFE_IN_A_ROW;
 
     if (mustRest || needMoreSafe || Math.random() < 0.4) {
       pushSafe();
-      continue;
+      return;
     }
 
     const road = createRoad(t, fastInARow < MAX_FAST_IN_A_ROW);
@@ -173,15 +187,18 @@ export function createLanes() {
     fastInARow = isFastModel(road.model) ? fastInARow + 1 : 0;
     roadsInARow += 1;
     safeInARow = 0;
-  }
+  };
 
-  // 마지막 줄이 도로로 끝나거나 안전지대가 덜 채워진 채 루프가 끝날 수 있다.
-  // 끝에도 쉴 곳을 보장해준다.
-  while (safeInARow < MIN_SAFE_IN_A_ROW) {
-    pushSafe();
-  }
+  /** upTo번 레인까지 존재하도록 채우고 현재 목록을 돌려준다 */
+  const ensure = (upTo: number) => {
+    const target = upTo + CHUNK;
+    while (lanes.length <= target) pushOne(lanes.length);
 
-  return lanes;
+    // 끝이 도로로 끝나면 쉴 곳을 보장
+    while (safeInARow > 0 && safeInARow < MIN_SAFE_IN_A_ROW) pushSafe();
+
+    return lanes.slice();
+  };
+
+  return { ensure, get length() { return lanes.length; } };
 }
-
-export const lanes = createLanes();

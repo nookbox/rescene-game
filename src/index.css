@@ -19,6 +19,12 @@ body,
   width: 100%;
   height: 100%;
   overflow: hidden;
+  /* 스와이프가 스크롤·당겨서새로고침으로 먹히지 않게 */
+  touch-action: none;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {

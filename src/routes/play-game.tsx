@@ -3,12 +3,15 @@ import { Car } from '@/components/game/car';
 import { Lane } from '@/components/game/lane';
 import { Player } from '@/components/game/player';
 import { Button } from '@/components/ui/button';
-import { CAMERA, FACING, LANE, TILE_SIZE } from '@/utils/constants';
-import { lanes } from '@/utils/lanes';
+import { CAMERA, FACING, LANE, LIGHT, TILE_SIZE } from '@/utils/constants';
+import {
+  createLaneStream,
+  type Lane as LaneData,
+  type LaneStream,
+} from '@/utils/lanes';
 import { Canvas } from '@react-three/fiber';
 import { createFileRoute } from '@tanstack/react-router';
-import { useControls } from 'leva';
-import { Fragment, useEffect, useState } from 'react';
+import { Fragment, useEffect, useState, useRef } from 'react';
 
 export const Route = createFileRoute('/play-game')({
   component: PlayGame,
@@ -38,7 +41,22 @@ function PlayGame() {
   const [tile, setTile] = useState({ x: 0, z: 0, facing: 0, score: 0 });
 
   const [isGameOver, setIsGameOver] = useState(false);
+  // 어느 방향으로 튕겨나갈지. 죽을 때 딱 한 번 정해진다.
+  const [hitSpeed, setHitSpeed] = useState(0);
   const [runId, setRunId] = useState(0);
+
+  // 레인 생성기는 리렌더와 무관하게 살아있어야 해서 ref에 담는다.
+  // ref 객체 자체는 절대 안 바뀌므로 핸들러 안에서 읽어도 오래된 값이 잡히지 않는다.
+  const streamRef = useRef<LaneStream | null>(null);
+  streamRef.current ??= createLaneStream();
+
+  const [lanes, setLanes] = useState<LaneData[]>(() =>
+    streamRef.current!.ensure(LANE.ahead),
+  );
+
+  // 플레이어가 실제로 그려지는 위치. 충돌 판정이 이걸 본다.
+  // 매 프레임 바뀌므로 state가 아니라 ref로 공유한다.
+  const playerPos = useRef({ x: 0, z: 0 });
 
   const [best, setBest] = useState(readBestScore);
   const [isNewBest, setIsNewBest] = useState(false);
@@ -47,9 +65,18 @@ function PlayGame() {
   // 따로 두고 effect로 맞추면 렌더가 한 번 더 도는 데다 순서도 어긋난다.
   const score = tile.score;
 
+  // 앞쪽이 모자라기 전에 미리 이어붙인다
+  useEffect(() => {
+    const stream = streamRef.current!;
+    if (stream.length <= tile.z + LANE.ahead) {
+      setLanes(stream.ensure(tile.z + LANE.ahead));
+    }
+  }, [tile.z]);
+
   // 죽는 순간에만 최고 점수를 갱신한다
-  const handleHit = () => {
+  const handleHit = (carSpeed: number) => {
     setIsGameOver(true);
+    setHitSpeed(carSpeed);
 
     if (score > best) {
       setBest(score);
@@ -57,11 +84,6 @@ function PlayGame() {
       writeBestScore(score);
     }
   };
-
-  const { ambient, spot } = useControls('조명', {
-    ambient: { value: 1.5, min: 0, max: 5, step: 0.1 },
-    spot: { value: 3, min: 0, max: 10, step: 0.1 },
-  });
 
   useEffect(() => {
     // 좌우 한계. width가 11이면 -5 ~ 5
@@ -89,7 +111,8 @@ function PlayGame() {
         switch (e.key) {
           case 'ArrowUp': {
             // 마지막 타일보다 앞으로는 못간다
-            if (prev.z >= lanes.length - 1) return { ...prev, facing: FACING.up };
+            if (prev.z >= streamRef.current!.length - 1)
+              return { ...prev, facing: FACING.up };
 
             const z = prev.z + 1;
 
@@ -128,10 +151,22 @@ function PlayGame() {
     };
   }, [isGameOver]);
 
+  // slice/filter로 자르면 map의 인덱스가 0부터 다시 시작해 맵이 앞으로 당겨진다.
+  // 원래 번호를 그대로 들고 돌아야 한다.
+  const visible: number[] = [];
+  for (
+    let i = Math.max(0, tile.z - LANE.behind);
+    i <= Math.min(lanes.length - 1, tile.z + LANE.ahead);
+    i++
+  ) {
+    visible.push(i);
+  }
+
   return (
     <div className='relative w-full h-full'>
       <Canvas
         camera={{ position: [0, CAMERA.height, CAMERA.distance] }}
+        dpr={[1, 2]}
         key={runId}
       >
         <CameraController tileZ={tile.z} />
@@ -140,25 +175,27 @@ function PlayGame() {
           tileX={tile.x}
           tileZ={tile.z}
           facing={tile.facing}
+          posRef={playerPos}
+          dead={isGameOver}
+          hitSpeed={hitSpeed}
         />
 
-        <ambientLight intensity={ambient} />
-        <spotLight
-          position={[10, 10, 10]}
-          penumbra={1}
-          decay={0}
-          intensity={spot}
-        />
-        <pointLight position={[-10, -10, -10]} decay={0} intensity={Math.PI} />
+        {/* 색을 날리지 않을 만큼만 밝힌다.
+            spotLight는 원뿔이라 화면 끝이 어두워졌다.
+            directionalLight는 태양처럼 평행광이라 넓은 맵에 고르게 닿는다. */}
+        <ambientLight intensity={LIGHT.ambient} />
+        <directionalLight position={[6, 12, 6]} intensity={LIGHT.sun} />
 
-        {lanes.map((lane, index) => (
+        {visible.map((index) => {
+          const lane = lanes[index];
+          return (
           <Fragment key={index}>
             <Lane
               position={[0, 0, -index * TILE_SIZE]}
-              rotation={[-Math.PI / 2, 0, 0]}
-              width={LANE.width}
-              depth={TILE_SIZE}
-              color={lane.type === 'safe' ? 'green' : 'gray'}
+              index={index}
+              variant={
+                lane.type === 'road' && lane.crosswalk ? 'crosswalk' : lane.type
+              }
             />
 
             {lane.type === 'road' &&
@@ -168,14 +205,14 @@ function PlayGame() {
                   model={lane.model}
                   position={[startX, 0, -index * TILE_SIZE]}
                   speed={lane.speed}
-                  playerTileX={tile.x}
-                  playerTileZ={tile.z}
+                  playerPos={playerPos}
                   laneIndex={index}
                   onHit={handleHit}
                 />
               ))}
           </Fragment>
-        ))}
+          );
+        })}
       </Canvas>
       {/* 플레이 중 점수. 캔버스 위에 얹는다 */}
       <div className='pointer-events-none absolute top-6 left-6 text-white drop-shadow'>
@@ -202,6 +239,8 @@ function PlayGame() {
 
           <Button
             onClick={() => {
+              streamRef.current = createLaneStream();
+              setLanes(streamRef.current.ensure(LANE.ahead));
               setRunId((prev) => prev + 1);
               setIsGameOver(false);
               setTile({ x: 0, z: 0, facing: 0, score: 0 });

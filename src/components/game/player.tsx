@@ -19,19 +19,43 @@ const JUMP_HEIGHT = 0.5;
 // 방향 전환 속도. 클수록 빨리 돈다
 const TURN_SPEED = 12;
 
+// 차에 치였을 때 날아가는 정도
+const KNOCK_SIDE = 6; // 치인 방향으로 밀리는 속도
+const KNOCK_UP = 6; // 위로 솟는 속도
+const GRAVITY = 20; // 초당 y속도가 깎이는 양
+const SPIN = 8; // 공중에서 도는 속도(라디안/초)
+
+// 이보다 아래로 떨어지면 그만 계산한다
+const FLOOR_LIMIT = -5;
+
 type PlayerProps = {
   tileX: number;
   tileZ: number;
   facing: number;
+  /** 화면에 실제로 그려지는 위치. 충돌 판정이 이걸 본다 */
+  posRef?: { current: { x: number; z: number } };
+  dead?: boolean;
+  /** 치인 차의 속도. 부호가 날아갈 방향을 정한다 */
+  hitSpeed?: number;
 };
 
-export function Player({ tileX, tileZ, facing }: PlayerProps) {
+export function Player({
+  tileX,
+  tileZ,
+  facing,
+  posRef,
+  dead = false,
+  hitSpeed = 0,
+}: PlayerProps) {
   const { scene } = useGLTF(MODEL_URL);
   const moveRef = useRef<THREE.Group>(null);
   const jumpRef = useRef<THREE.Group>(null);
 
   const startTime = useRef(0); // 이번 점프가 시작된 시각
   const from = useRef({ x: 0, z: 0 }); // 점프 출발 위치(실제 좌표)
+
+  // 튕겨나갈 때 쓰는 속도. 매 프레임 바뀌므로 ref.
+  const velocity = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     startTime.current = performance.now() / 1000;
@@ -46,8 +70,41 @@ export function Player({ tileX, tileZ, facing }: PlayerProps) {
     }
   }, [tileX, tileZ]);
 
+  // 죽는 순간에 초기 속도를 정한다.
+  // 점프처럼 도착점을 미리 계산하지 않고, 속도를 중력이 깎게 두면
+  // 어디까지 날아갈지가 자연스럽게 나온다.
+  useEffect(() => {
+    if (!dead) return;
+
+    velocity.current = {
+      // 부호만 쓴다. 치인 방향으로 밀려나가야 하니까.
+      x: Math.sign(hitSpeed || 1) * KNOCK_SIDE,
+      y: KNOCK_UP,
+    };
+  }, [dead, hitSpeed]);
+
   useFrame((_state, delta) => {
     if (!moveRef.current || !jumpRef.current) return;
+
+    if (posRef) {
+      posRef.current.x = moveRef.current.position.x;
+      posRef.current.z = moveRef.current.position.z;
+    }
+
+    // 죽었으면 칸 이동 로직을 건너뛴다.
+    // 안 그러면 매 프레임 목표 칸으로 되돌아가서 날아가질 못한다.
+    if (dead) {
+      if (jumpRef.current.position.y > FLOOR_LIMIT) {
+        velocity.current.y -= GRAVITY * delta;
+
+        moveRef.current.position.x += velocity.current.x * delta;
+        jumpRef.current.position.y += velocity.current.y * delta;
+
+        // 공중에서 빙글빙글
+        jumpRef.current.rotation.z += SPIN * delta;
+      }
+      return;
+    }
 
     const targetX = tileX * TILE_SIZE;
     const targetZ = -tileZ * TILE_SIZE;

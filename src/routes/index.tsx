@@ -26,11 +26,11 @@ function Landing() {
   return (
     <div className='retro-scanlines flex h-full w-full flex-col items-center justify-center gap-10 bg-black font-retro text-cyan-200'>
       <h1 className='retro-glow text-3xl tracking-widest sm:text-5xl'>
-        RESCENE
+        CROSSY
       </h1>
 
       <p className='text-[8px] tracking-[0.3em] text-cyan-400/80 sm:text-xs'>
-        떨어지는 카드를 받고 폭탄을 피하세요
+        차를 피해 길을 건너세요
       </p>
 
       <Button
